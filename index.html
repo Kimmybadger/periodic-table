@@ -335,7 +335,38 @@
 
   .modal-title { flex: 1; }
   .modal-title h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
-  .modal-title .name-en { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  .modal-title .name-en-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .modal-title .name-en { font-size: 0.85rem; color: var(--muted); }
+
+  .pronounce-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .pronounce-btn:hover { background: var(--glow); border-color: var(--accent); }
+  .pronounce-btn.playing {
+    background: var(--glow);
+    border-color: var(--accent);
+    animation: pulse 0.8s ease infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0.4); }
+    50%       { box-shadow: 0 0 0 6px rgba(56,189,248,0); }
+  }
   .modal-cat-badge {
     display: inline-block;
     padding: 3px 10px;
@@ -459,7 +490,10 @@
       </div>
       <div class="modal-title">
         <h2 id="m-name"></h2>
-        <div class="name-en" id="m-name-en"></div>
+        <div class="name-en-row">
+          <div class="name-en" id="m-name-en"></div>
+          <button class="pronounce-btn" id="pronounce-btn" title="발음 듣기">🔊</button>
+        </div>
         <div class="modal-cat-badge" id="m-cat"></div>
       </div>
     </div>
@@ -803,16 +837,37 @@ function openModal(z) {
   document.getElementById('m-wiki').href = wikiUrl;
   document.getElementById('m-namu').href = namuUrl;
 
+  // 발음 버튼 — 현재 원소 이름으로 교체
+  const btn = document.getElementById('pronounce-btn');
+  btn.onclick = () => pronounce(nameEn, btn);
+
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+function pronounce(name, btn) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+
+  const utter = new SpeechSynthesisUtterance(name);
+  utter.lang = 'en-US';
+  utter.rate = 0.85;
+
+  btn.classList.add('playing');
+  utter.onend = () => btn.classList.remove('playing');
+  utter.onerror = () => btn.classList.remove('playing');
+
+  window.speechSynthesis.speak(utter);
 }
 
 function closeModal(e) {
   if (e.target === document.getElementById('modal-overlay')) {
+    window.speechSynthesis && window.speechSynthesis.cancel();
     document.getElementById('modal-overlay').classList.remove('open');
   }
 }
 
 function closeModalBtn() {
+  window.speechSynthesis && window.speechSynthesis.cancel();
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
