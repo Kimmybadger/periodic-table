@@ -433,6 +433,188 @@
   /* hover group/period highlight */
   .el.period-hl { background: rgba(56,189,248,0.07); }
   .el.group-hl { background: rgba(56,189,248,0.07); }
+
+  /* ── 컨트롤 바 ── */
+  .control-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ctrl-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .ctrl-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--muted);
+    font-size: 0.68rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    font-family: 'Noto Sans KR', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .ctrl-btn:hover { border-color: var(--accent); color: var(--text); }
+  .ctrl-btn.active { border-color: var(--accent); background: var(--glow); color: var(--accent); font-weight: 700; }
+
+  .ctrl-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* 온도 슬라이더 */
+  .temp-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 220px;
+  }
+
+  .temp-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text);
+    min-width: 80px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .slider-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    position: relative;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, #1e3a8a, #3b82f6, #ef4444, #f97316, #eab308, #f0f0f0);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(56,189,248,0.6);
+  }
+
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent);
+    cursor: pointer;
+  }
+
+  /* 눈금 바 */
+  .tick-bar {
+    position: relative;
+    height: 28px;
+    width: 100%;
+  }
+
+  .tick-mark {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    pointer-events: none;
+  }
+
+  .tick-line {
+    width: 1px;
+    height: 6px;
+    background: var(--muted);
+  }
+
+  .tick-mark.major .tick-line {
+    height: 8px;
+    background: var(--text);
+    width: 1.5px;
+  }
+
+  .tick-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.42rem;
+    color: var(--muted);
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1;
+  }
+
+  .tick-mark.major .tick-label {
+    color: var(--text);
+    font-size: 0.46rem;
+  }
+
+  .tick-mark.highlight .tick-line { background: var(--accent); }
+  .tick-mark.highlight .tick-label { color: var(--accent); }
+
+  /* 히트맵 범례 */
+  .heatmap-legend {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.6rem;
+    color: var(--muted);
+  }
+
+  .heatmap-legend.visible { display: flex; }
+
+  .heatmap-gradient {
+    width: 100px;
+    height: 8px;
+    border-radius: 4px;
+  }
+
+  /* 원소 오버레이 텍스트 (온도 모드/히트맵 모드에서 수치 표시) */
+  .el-overlay {
+    display: none;
+    position: absolute;
+    bottom: 2px;
+    left: 0; right: 0;
+    font-size: 0.38rem;
+    text-align: center;
+    color: rgba(255,255,255,0.6);
+    font-family: 'Space Mono', monospace;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -443,6 +625,9 @@
 </header>
 
 <div class="main-container">
+  <!-- 컨트롤 바 -->
+  <div id="control-bar"></div>
+
   <!-- Info Bar -->
   <div class="info-bar">
     <div class="info-card" id="period-info">
@@ -855,6 +1040,544 @@ function closeModalBtn() {
 }
 
 buildTable();
+
+// ══════════════════════════════════════════════
+// 녹는점(mp) / 끓는점(bp) 데이터 (°C, null=미상)
+// ══════════════════════════════════════════════
+const THERMO = {
+  1:  {mp:-259.1, bp:-252.9},  2:  {mp:-272.2, bp:-268.9},
+  3:  {mp:180.5,  bp:1342},    4:  {mp:1287,   bp:2470},
+  5:  {mp:2076,   bp:3927},    6:  {mp:3550,   bp:4027},
+  7:  {mp:-210,   bp:-195.8},  8:  {mp:-218.8, bp:-183},
+  9:  {mp:-219.6, bp:-188.1},  10: {mp:-248.6, bp:-246.1},
+  11: {mp:97.8,   bp:883},     12: {mp:650,    bp:1090},
+  13: {mp:660,    bp:2519},    14: {mp:1414,   bp:3265},
+  15: {mp:44.2,   bp:280.5},   16: {mp:115.2,  bp:444.6},
+  17: {mp:-101.5, bp:-34.1},   18: {mp:-189.3, bp:-185.8},
+  19: {mp:63.4,   bp:759},     20: {mp:842,    bp:1484},
+  21: {mp:1541,   bp:2836},    22: {mp:1668,   bp:3287},
+  23: {mp:1910,   bp:3407},    24: {mp:1907,   bp:2671},
+  25: {mp:1246,   bp:2061},    26: {mp:1538,   bp:2861},
+  27: {mp:1495,   bp:2927},    28: {mp:1455,   bp:2913},
+  29: {mp:1085,   bp:2562},    30: {mp:419.5,  bp:907},
+  31: {mp:29.8,   bp:2204},    32: {mp:938.3,  bp:2833},
+  33: {mp:817,    bp:614},     34: {mp:221,    bp:685},
+  35: {mp:-7.3,   bp:58.8},    36: {mp:-157.4, bp:-153.2},
+  37: {mp:39.3,   bp:688},     38: {mp:777,    bp:1382},
+  39: {mp:1526,   bp:3336},    40: {mp:1855,   bp:4409},
+  41: {mp:2477,   bp:4744},    42: {mp:2623,   bp:4639},
+  43: {mp:2157,   bp:4265},    44: {mp:2334,   bp:4150},
+  45: {mp:1964,   bp:3695},    46: {mp:1555,   bp:2963},
+  47: {mp:961.8,  bp:2162},    48: {mp:321.1,  bp:767},
+  49: {mp:156.6,  bp:2072},    50: {mp:231.9,  bp:2602},
+  51: {mp:630.6,  bp:1587},    52: {mp:449.5,  bp:988},
+  53: {mp:113.7,  bp:184.4},   54: {mp:-111.8, bp:-108.0},
+  55: {mp:28.4,   bp:671},     56: {mp:727,    bp:1897},
+  57: {mp:920,    bp:3464},    58: {mp:798,    bp:3443},
+  59: {mp:931,    bp:3520},    60: {mp:1016,   bp:3074},
+  61: {mp:1042,   bp:3000},    62: {mp:1072,   bp:1794},
+  63: {mp:822,    bp:1596},    64: {mp:1313,   bp:3273},
+  65: {mp:1356,   bp:3230},    66: {mp:1412,   bp:2567},
+  67: {mp:1474,   bp:2700},    68: {mp:1529,   bp:2868},
+  69: {mp:1545,   bp:1950},    70: {mp:824,    bp:1196},
+  71: {mp:1663,   bp:3402},    72: {mp:2233,   bp:4603},
+  73: {mp:3017,   bp:5458},    74: {mp:3422,   bp:5555},
+  75: {mp:3186,   bp:5596},    76: {mp:3033,   bp:5012},
+  77: {mp:2446,   bp:4428},    78: {mp:1768,   bp:3825},
+  79: {mp:1064,   bp:2856},    80: {mp:-38.8,  bp:356.7},
+  81: {mp:304,    bp:1473},    82: {mp:327.5,  bp:1749},
+  83: {mp:271.4,  bp:1564},    84: {mp:254,    bp:962},
+  85: {mp:302,    bp:337},     86: {mp:-71,    bp:-61.7},
+  87: {mp:27,     bp:677},     88: {mp:700,    bp:1737},
+  89: {mp:1050,   bp:3200},    90: {mp:1750,   bp:4788},
+  91: {mp:1572,   bp:4000},    92: {mp:1135,   bp:4131},
+  93: {mp:644,    bp:3902},    94: {mp:640,    bp:3228},
+  95: {mp:1176,   bp:2011},    96: {mp:1345,   bp:3110},
+  97: {mp:986,    bp:2627},    98: {mp:900,    bp:1470},
+  99: {mp:860,    bp:996},    100: {mp:1527,   bp:null},
+ 101: {mp:827,    bp:null},   102: {mp:827,    bp:null},
+ 103: {mp:1627,   bp:null},   104: {mp:null,   bp:null},
+ 105: {mp:null,   bp:null},   106: {mp:null,   bp:null},
+ 107: {mp:null,   bp:null},   108: {mp:null,   bp:null},
+ 109: {mp:null,   bp:null},   110: {mp:null,   bp:null},
+ 111: {mp:null,   bp:null},   112: {mp:null,   bp:null},
+ 113: {mp:null,   bp:null},   114: {mp:null,   bp:null},
+ 115: {mp:null,   bp:null},   116: {mp:null,   bp:null},
+ 117: {mp:null,   bp:null},   118: {mp:null,   bp:null},
+};
+
+// ══════════════════════════════════════════════
+// 히트맵 데이터
+// ══════════════════════════════════════════════
+const HEATMAP_DATA = {
+  electronegativity: {
+    label: '전기음성도', unit: '',
+    values: {
+      1:2.20,2:null,3:0.98,4:1.57,5:2.04,6:2.55,7:3.04,8:3.44,9:3.98,10:null,
+      11:0.93,12:1.31,13:1.61,14:1.90,15:2.19,16:2.58,17:3.16,18:null,
+      19:0.82,20:1.00,21:1.36,22:1.54,23:1.63,24:1.66,25:1.55,26:1.83,27:1.88,
+      28:1.91,29:1.90,30:1.65,31:1.81,32:2.01,33:2.18,34:2.55,35:2.96,36:3.00,
+      37:0.82,38:0.95,39:1.22,40:1.33,41:1.60,42:2.16,43:1.90,44:2.20,45:2.28,
+      46:2.20,47:1.93,48:1.69,49:1.78,50:1.96,51:2.05,52:2.10,53:2.66,54:2.60,
+      55:0.79,56:0.89,57:1.10,72:1.30,73:1.50,74:2.36,75:1.90,76:2.20,77:2.20,
+      78:2.28,79:2.54,80:2.00,81:1.62,82:2.33,83:2.02,84:2.00,85:2.20,86:null,
+    },
+    colors: ['#1e3a5f','#1d6fa4','#17a2b8','#28c76f','#f9ca24','#f0932b','#eb4d4b'],
+  },
+  atomicRadius: {
+    label: '원자 반지름', unit: 'pm',
+    values: {
+      1:53,2:31,3:167,4:112,5:87,6:67,7:56,8:48,9:42,10:38,
+      11:190,12:145,13:118,14:111,15:98,16:88,17:79,18:71,
+      19:243,20:194,21:184,22:176,23:171,24:166,25:161,26:156,27:152,
+      28:149,29:145,30:142,31:136,32:125,33:114,34:103,35:94,36:88,
+      37:265,38:219,39:212,40:206,41:198,42:190,43:183,44:178,45:173,
+      46:169,47:165,48:161,49:156,50:145,51:133,52:123,53:115,54:108,
+      55:298,56:253,57:195,72:208,73:200,74:193,75:188,76:185,77:180,
+      78:177,79:174,80:171,81:156,82:154,83:143,84:135,85:127,86:120,
+    },
+    colors: ['#4a0080','#7b2ff7','#2196f3','#00bcd4','#4caf50','#ffeb3b','#ff5722'],
+  },
+  meltingPoint: {
+    label: '녹는점', unit: '°C',
+    values: Object.fromEntries(Object.entries(THERMO).filter(([,v])=>v.mp!==null).map(([k,v])=>[k,v.mp])),
+    colors: ['#0d47a1','#1565c0','#42a5f5','#80deea','#fff176','#ff8f00','#b71c1c'],
+  },
+};
+
+// ══════════════════════════════════════════════
+// 현재 모드 상태
+// ══════════════════════════════════════════════
+let currentMode = 'normal'; // 'normal' | 'temp' | 'heatmap:electronegativity' | ...
+let currentTemp = 20;
+
+// ══════════════════════════════════════════════
+// 컨트롤 바 JS로 생성
+// ══════════════════════════════════════════════
+function buildControlBar() {
+  const bar = document.getElementById('control-bar');
+  bar.className = 'control-bar';
+
+  // ── 온도 슬라이더 ──
+  const tempLabel = document.createElement('div');
+  tempLabel.className = 'ctrl-label';
+  tempLabel.textContent = '🌡 온도';
+
+  const tempBtn = document.createElement('button');
+  tempBtn.className = 'ctrl-btn';
+  tempBtn.id = 'btn-temp';
+  tempBtn.textContent = '온도 모드';
+  tempBtn.addEventListener('click', () => toggleTempMode(tempBtn));
+
+  const sliderWrap = document.createElement('div');
+  sliderWrap.className = 'temp-slider-wrap';
+  sliderWrap.id = 'slider-wrap';
+  sliderWrap.style.display = 'none';
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.id = 'temp-slider';
+  slider.min = -273;
+  slider.max = 6000;
+  slider.value = 20;
+
+  const tickBar = document.createElement('div');
+  tickBar.className = 'tick-bar';
+  tickBar.id = 'tick-bar';
+
+  const sliderCol = document.createElement('div');
+  sliderCol.className = 'slider-col';
+  sliderCol.appendChild(slider);
+  sliderCol.appendChild(tickBar);
+
+  const tempValEl = document.createElement('div');
+  tempValEl.className = 'temp-value';
+  tempValEl.id = 'temp-val';
+  tempValEl.textContent = '20 °C';
+
+  slider.addEventListener('input', () => {
+    currentTemp = parseInt(slider.value);
+    tempValEl.textContent = currentTemp + ' °C';
+    applyTempMode();
+  });
+
+  sliderWrap.appendChild(sliderCol);
+  sliderWrap.appendChild(tempValEl);
+
+  // 돋보기 버튼
+  const zoomBtn = document.createElement('button');
+  zoomBtn.className = 'ctrl-btn';
+  zoomBtn.id = 'btn-zoom';
+  zoomBtn.style.display = 'none';
+  zoomBtn.textContent = '🔍 구간 확대';
+  zoomBtn.addEventListener('click', () => toggleZonePanel());
+
+  // 구간 선택 패널
+  const zonePanel = document.createElement('div');
+  zonePanel.id = 'zone-panel';
+  zonePanel.style.display = 'none';
+  zonePanel.style.alignItems = 'center';
+  zonePanel.style.gap = '6px';
+  zonePanel.style.flexWrap = 'wrap';
+
+  const ZONES = [
+    { label: '전체',              min: -273, max: 6000 },
+    { label: '극저온 (~-100°C)',  min: -273, max: -50  },
+    { label: '일상 (-20~150°C)',  min: -20,  max: 150  },
+    { label: '저온금속 (100~700°C)', min: 100, max: 700 },
+    { label: '고온금속 (700~2000°C)', min: 700, max: 2000 },
+    { label: '초고온 (2000~6000°C)', min: 2000, max: 6000 },
+  ];
+
+  const zoneBtns = [];
+  ZONES.forEach(zone => {
+    const zb = document.createElement('button');
+    zb.className = 'ctrl-btn zone-btn';
+    zb.textContent = zone.label;
+    zb.style.fontSize = '0.62rem';
+    zb.addEventListener('click', () => {
+      zoneBtns.forEach(b => b.classList.remove('active'));
+      zb.classList.add('active');
+      applyZoom(zone.min, zone.max);
+    });
+    zoneBtns.push(zb);
+    zonePanel.appendChild(zb);
+  });
+
+  // 온도 범례
+  const tempLegend = document.createElement('div');
+  tempLegend.id = 'temp-legend';
+  tempLegend.style.cssText = 'display:none; align-items:center; gap:8px; font-size:0.6rem; flex-wrap:wrap;';
+  tempLegend.innerHTML = `
+    <span style="display:flex;align-items:center;gap:4px;color:#60a5fa">
+      <span style="width:10px;height:10px;border-radius:2px;background:#1e3a8a;display:inline-block"></span>고체
+    </span>
+    <span style="display:flex;align-items:center;gap:4px;color:#f87171">
+      <span style="width:10px;height:10px;border-radius:2px;background:#dc2626;display:inline-block"></span>액체
+    </span>
+    <span style="display:flex;align-items:center;gap:4px;color:#86efac">
+      <span style="width:10px;height:10px;border-radius:2px;background:#16a34a;display:inline-block"></span>기체
+    </span>
+    <span style="display:flex;align-items:center;gap:4px;color:#94a3b8">
+      <span style="width:10px;height:10px;border-radius:2px;background:#334155;display:inline-block"></span>데이터 없음
+    </span>
+  `;
+
+  const div1 = document.createElement('div');
+  div1.className = 'ctrl-divider';
+
+  // ── 히트맵 버튼들 ──
+  const hmLabel = document.createElement('div');
+  hmLabel.className = 'ctrl-label';
+  hmLabel.textContent = '⚡ 히트맵';
+
+  const hmBtns = [];
+  [
+    { key: 'electronegativity', label: '전기음성도' },
+    { key: 'atomicRadius',      label: '원자 반지름' },
+    { key: 'meltingPoint',      label: '녹는점' },
+  ].forEach(({ key, label }) => {
+    const btn = document.createElement('button');
+    btn.className = 'ctrl-btn';
+    btn.dataset.hm = key;
+    btn.textContent = label;
+    btn.addEventListener('click', () => toggleHeatmap(key, btn, hmBtns, tempBtn, sliderWrap, tempLegend, hmLegend));
+    hmBtns.push(btn);
+  });
+
+  // 히트맵 범례
+  const hmLegend = document.createElement('div');
+  hmLegend.id = 'hm-legend';
+  hmLegend.style.cssText = 'display:none; align-items:center; gap:6px; font-size:0.6rem; color:var(--muted);';
+  const canvas = document.createElement('canvas');
+  canvas.id = 'hm-canvas';
+  canvas.width = 100; canvas.height = 8;
+  canvas.style.borderRadius = '4px';
+  const hmMin = document.createElement('span');
+  hmMin.id = 'hm-min';
+  const hmMax = document.createElement('span');
+  hmMax.id = 'hm-max';
+  hmLegend.appendChild(hmMin);
+  hmLegend.appendChild(canvas);
+  hmLegend.appendChild(hmMax);
+
+  // 초기화 버튼
+  const div2 = document.createElement('div');
+  div2.className = 'ctrl-divider';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'ctrl-btn';
+  resetBtn.textContent = '✕ 초기화';
+  resetBtn.addEventListener('click', () => resetMode(tempBtn, sliderWrap, tempLegend, hmBtns, hmLegend));
+
+  // 조립
+  bar.appendChild(tempLabel);
+  bar.appendChild(tempBtn);
+  bar.appendChild(zoomBtn);
+  bar.appendChild(sliderWrap);
+  bar.appendChild(zonePanel);
+  bar.appendChild(tempLegend);
+  bar.appendChild(div1);
+  bar.appendChild(hmLabel);
+  hmBtns.forEach(b => bar.appendChild(b));
+  bar.appendChild(hmLegend);
+  bar.appendChild(div2);
+  bar.appendChild(resetBtn);
+}
+
+// ══════════════════════════════════════════════
+// 눈금 렌더링
+// ══════════════════════════════════════════════
+function renderTicks() {
+  const bar = document.getElementById('tick-bar');
+  const slider = document.getElementById('temp-slider');
+  if (!bar || !slider) return;
+  bar.innerHTML = '';
+
+  const MIN = parseInt(slider.min);
+  const MAX = parseInt(slider.max);
+  const RANGE = MAX - MIN;
+
+  // 범위에 맞는 눈금 간격 자동 선택
+  const span = RANGE;
+  let step, majorStep;
+  if (span <= 100)        { step = 5;    majorStep = 20;   }
+  else if (span <= 300)   { step = 20;   majorStep = 100;  }
+  else if (span <= 800)   { step = 50;   majorStep = 200;  }
+  else if (span <= 2000)  { step = 100;  majorStep = 500;  }
+  else if (span <= 5000)  { step = 200;  majorStep = 1000; }
+  else                    { step = 500;  majorStep = 2000; }
+
+  // 고정 주요 눈금 (항상 표시)
+  const NAMED = [
+    { temp: -273, label: '절대영도' },
+    { temp: 0,    label: '물 어는점' },
+    { temp: 100,  label: '물 끓는점' },
+    { temp: 1538, label: '철 녹음' },
+    { temp: 3422, label: '텅스텐' },
+  ];
+
+  const rendered = new Set();
+
+  // 일반 눈금
+  const start = Math.ceil(MIN / step) * step;
+  for (let t = start; t <= MAX; t += step) {
+    if (t < MIN || t > MAX) continue;
+    const pct = (t - MIN) / RANGE * 100;
+    const isMajor = (t % majorStep === 0);
+    const mark = document.createElement('div');
+    mark.className = 'tick-mark' + (isMajor ? ' major' : '');
+    mark.style.left = pct + '%';
+    mark.innerHTML = `<div class="tick-line"></div><div class="tick-label">${isMajor ? t+'°' : ''}</div>`;
+    bar.appendChild(mark);
+    rendered.add(t);
+  }
+
+  // 이름 있는 특수 눈금 — 범위 안에 있으면 추가
+  NAMED.forEach(({ temp, label }) => {
+    if (temp < MIN || temp > MAX) return;
+    const pct = (temp - MIN) / RANGE * 100;
+
+    // 이미 있으면 교체, 없으면 추가
+    const existing = [...bar.children].find(c => Math.abs(parseFloat(c.style.left) - pct) < 0.5);
+    if (existing) existing.remove();
+
+    const mark = document.createElement('div');
+    mark.className = 'tick-mark major highlight';
+    mark.style.left = pct + '%';
+    mark.innerHTML = `<div class="tick-line"></div><div class="tick-label" style="white-space:pre">${temp}°\n${label}</div>`;
+    bar.appendChild(mark);
+  });
+}
+
+// ══════════════════════════════════════════════
+// 온도 모드
+// ══════════════════════════════════════════════
+function toggleTempMode(tempBtn, sliderWrap, tempLegend) {
+  const sw = document.getElementById('slider-wrap');
+  const tl = document.getElementById('temp-legend');
+  const tb = document.getElementById('btn-temp');
+  const zb = document.getElementById('btn-zoom');
+  const zp = document.getElementById('zone-panel');
+
+  if (currentMode === 'temp') {
+    resetMode();
+    return;
+  }
+  resetMode();
+  currentMode = 'temp';
+  tb.classList.add('active');
+  sw.style.display = 'flex';
+  tl.style.display = 'flex';
+  zb.style.display = '';
+  renderTicks();
+  applyTempMode();
+}
+
+function toggleZonePanel() {
+  const zp = document.getElementById('zone-panel');
+  const zb = document.getElementById('btn-zoom');
+  if (!zp || !zb) return;
+  const isOpen = zb.classList.contains('active');
+  if (isOpen) {
+    zp.style.display = 'none';
+    zb.classList.remove('active');
+  } else {
+    zp.style.display = 'flex';
+    zb.classList.add('active');
+  }
+}
+
+function applyZoom(min, max) {
+  const slider = document.getElementById('temp-slider');
+  const tempVal = document.getElementById('temp-val');
+  if (!slider) return;
+
+  slider.min = min;
+  slider.max = max;
+
+  // 현재 값이 범위 밖이면 중간값으로 조정
+  const mid = Math.round((min + max) / 2);
+  currentTemp = Math.min(Math.max(currentTemp, min), max);
+  if (currentTemp < min || currentTemp > max) currentTemp = mid;
+  slider.value = currentTemp;
+  tempVal.textContent = currentTemp + ' °C';
+
+  renderTicks();
+  applyTempMode();
+}
+
+function applyTempMode() {
+  const t = currentTemp;
+  document.querySelectorAll('.el').forEach(el => {
+    const z = parseInt(el.dataset.z);
+    const th = THERMO[z];
+    el.style.transition = 'background 0.3s';
+    if (!th || th.mp === null) {
+      el.style.background = '#1e293b'; // 데이터 없음
+      el.style.borderLeftColor = '#334155';
+    } else if (t < th.mp) {
+      // 고체 — 파란 계열
+      el.style.background = '#1e3a8a';
+      el.style.borderLeftColor = '#3b82f6';
+    } else if (th.bp === null || t < th.bp) {
+      // 액체 — 빨간 계열
+      el.style.background = '#7f1d1d';
+      el.style.borderLeftColor = '#ef4444';
+    } else {
+      // 기체 — 초록 계열
+      el.style.background = '#14532d';
+      el.style.borderLeftColor = '#22c55e';
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+// 히트맵 모드
+// ══════════════════════════════════════════════
+function toggleHeatmap(key, activeBtn, allBtns, tempBtn, sliderWrap, tempLegend, hmLegend) {
+  const sw = document.getElementById('slider-wrap');
+  const tl = document.getElementById('temp-legend');
+  const hl = document.getElementById('hm-legend');
+  const tb = document.getElementById('btn-temp');
+
+  if (currentMode === 'heatmap:' + key) {
+    resetMode();
+    return;
+  }
+  resetMode();
+  currentMode = 'heatmap:' + key;
+
+  allBtns.forEach(b => b.classList.remove('active'));
+  activeBtn.classList.add('active');
+  hl.style.display = 'flex';
+
+  const data = HEATMAP_DATA[key];
+  const vals = Object.values(data.values).filter(v => v !== null);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+
+  // 범례 그라데이션 그리기
+  const canvas = document.getElementById('hm-canvas');
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 100, 0);
+  data.colors.forEach((c, i) => grad.addColorStop(i / (data.colors.length - 1), c));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 100, 8);
+  document.getElementById('hm-min').textContent = min.toFixed(1) + (data.unit ? ' ' + data.unit : '');
+  document.getElementById('hm-max').textContent = max.toFixed(1) + (data.unit ? ' ' + data.unit : '');
+
+  // 원소에 색 적용
+  document.querySelectorAll('.el').forEach(el => {
+    const z = parseInt(el.dataset.z);
+    const val = data.values[z];
+    el.style.transition = 'background 0.3s';
+    if (val === undefined || val === null) {
+      el.style.background = '#1e293b';
+      el.style.borderLeftColor = '#334155';
+    } else {
+      const t = (val - min) / (max - min);
+      el.style.background = interpolateColors(data.colors, t);
+      el.style.borderLeftColor = interpolateColors(data.colors, t);
+    }
+  });
+}
+
+// 색상 보간 함수
+function interpolateColors(colors, t) {
+  const n = colors.length - 1;
+  const i = Math.min(Math.floor(t * n), n - 1);
+  const f = t * n - i;
+  return lerpColor(colors[i], colors[i + 1], f);
+}
+
+function lerpColor(a, b, t) {
+  const ah = a.replace('#','');
+  const bh = b.replace('#','');
+  const ar = parseInt(ah.slice(0,2),16), ag = parseInt(ah.slice(2,4),16), ab = parseInt(ah.slice(4,6),16);
+  const br = parseInt(bh.slice(0,2),16), bg = parseInt(bh.slice(2,4),16), bb = parseInt(bh.slice(4,6),16);
+  const r = Math.round(ar + (br-ar)*t).toString(16).padStart(2,'0');
+  const g = Math.round(ag + (bg-ag)*t).toString(16).padStart(2,'0');
+  const bl = Math.round(ab + (bb-ab)*t).toString(16).padStart(2,'0');
+  return '#' + r + g + bl;
+}
+
+// ══════════════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════════════
+function resetMode() {
+  currentMode = 'normal';
+  currentTemp = 20;
+
+  const sw = document.getElementById('slider-wrap');
+  const tl = document.getElementById('temp-legend');
+  const hl = document.getElementById('hm-legend');
+  const tb = document.getElementById('btn-temp');
+  const slider = document.getElementById('temp-slider');
+  const tempVal = document.getElementById('temp-val');
+  const zb = document.getElementById('btn-zoom');
+  const zp = document.getElementById('zone-panel');
+
+  if (sw) sw.style.display = 'none';
+  if (tl) tl.style.display = 'none';
+  if (hl) hl.style.display = 'none';
+  if (tb) tb.classList.remove('active');
+  if (zb) { zb.style.display = 'none'; zb.classList.remove('active'); }
+  if (zp) { zp.style.display = 'none'; }
+  if (slider) { slider.min = -273; slider.max = 6000; slider.value = 20; }
+  if (tempVal) tempVal.textContent = '20 °C';
+
+  document.querySelectorAll('.ctrl-btn[data-hm]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+
+  document.querySelectorAll('.el').forEach(el => {
+    el.style.background = '';
+    el.style.borderLeftColor = '';
+    el.style.transition = '';
+  });
+}
+
+buildControlBar();
 
 // ── 반응형 크기 계산 — CSS media query 대신 JS로 실제 viewport 기반 설정 ──
 // 주기율표는 19열(label 1 + group 18) + gap
