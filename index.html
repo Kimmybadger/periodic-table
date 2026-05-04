@@ -27,7 +27,7 @@
     --actinide: #fb7185;
     --unknown: #475569;
 
-    /* 셀 크기 — 이 변수 하나로 전체 테이블 스케일 결정 */
+    /* 셀 크기 — JS에서 viewport 기반으로 동적 설정 */
     --cell: 100px;
     --label: 40px;
     --gap: 5px;
@@ -35,19 +35,6 @@
     --num-size: 0.82rem;
     --name-size: 0.72rem;
     --mass-size: 0.64rem;
-  }
-
-  /* 모바일: 작게 */
-  @media (max-width: 900px) {
-    :root {
-      --cell: 46px;
-      --label: 22px;
-      --gap: 3px;
-      --sym-size: 0.95rem;
-      --num-size: 0.5rem;
-      --name-size: 0.4rem;
-      --mass-size: 0.38rem;
-    }
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -112,8 +99,6 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    width: max-content;
-    min-width: 100%;
   }
 
   /* Period/Group info bar */
@@ -121,8 +106,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
-    width: max-content;
-    min-width: min(100%, 960px);
   }
 
   .info-card {
@@ -872,6 +855,59 @@ function closeModalBtn() {
 }
 
 buildTable();
+
+// ── 반응형 크기 계산 — CSS media query 대신 JS로 실제 viewport 기반 설정 ──
+// 주기율표는 19열(label 1 + group 18) + gap
+// 셀 크기 = (viewport - padding) / 19
+function applyResponsiveSize() {
+  const vw = window.innerWidth;
+  const root = document.documentElement;
+
+  let cell, label, gap, sym, num, name, mass;
+
+  if (vw >= 1400) {
+    // 대형 데스크탑
+    cell = 100; label = 40; gap = 5;
+    sym = 2.1; num = 0.82; name = 0.72; mass = 0.64;
+  } else if (vw >= 1100) {
+    // 일반 데스크탑
+    cell = 78; label = 34; gap = 4;
+    sym = 1.6; num = 0.72; name = 0.6; mass = 0.54;
+  } else if (vw >= 800) {
+    // 소형 데스크탑 / 태블릿 가로
+    cell = 58; label = 26; gap = 3;
+    sym = 1.2; num = 0.62; name = 0.5; mass = 0.44;
+  } else {
+    // 모바일 — viewport에 꽉 맞게 자동 계산
+    const padding = 40; // main-container 좌우 padding 합계
+    const cols = 19;    // label 1 + group 18
+    const totalGap = 3 * (cols - 1);
+    cell = Math.floor((vw - padding - totalGap) / cols);
+    cell = Math.max(cell, 38); // 최소 38px
+    label = Math.round(cell * 0.5);
+    gap = 3;
+    const ratio = cell / 46; // 기준 46px 대비 비율
+    sym  = +(0.95 * ratio).toFixed(2);
+    num  = +(0.50 * ratio).toFixed(2);
+    name = +(0.40 * ratio).toFixed(2);
+    mass = +(0.38 * ratio).toFixed(2);
+  }
+
+  root.style.setProperty('--cell',      cell + 'px');
+  root.style.setProperty('--label',     label + 'px');
+  root.style.setProperty('--gap',       gap + 'px');
+  root.style.setProperty('--sym-size',  sym + 'rem');
+  root.style.setProperty('--num-size',  num + 'rem');
+  root.style.setProperty('--name-size', name + 'rem');
+  root.style.setProperty('--mass-size', mass + 'rem');
+
+  // info-bar 너비를 테이블 너비에 맞춤
+  const tableW = label + (cell + gap) * 18 + gap;
+  document.querySelector('.info-bar').style.width = tableW + 'px';
+}
+
+applyResponsiveSize();
+window.addEventListener('resize', applyResponsiveSize);
 
 // ── Legend: 원소 버튼과 동일한 방식으로 JS에서 생성 + addEventListener 직접 부착 ──
 const LEGEND_DATA = [
